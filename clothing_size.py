@@ -17,6 +17,8 @@ st.set_page_config(
     layout="wide"
 )
 
+
+
 # -----------------------------------------------------
 # LOAD TRAINED MODEL
 # -----------------------------------------------------
@@ -151,6 +153,14 @@ def convert_weight(value, unit):
   # =====================================================
 # USER INPUT FORM
 # =====================================================
+if "show_result" not in st.session_state:
+    st.session_state.show_result = False
+
+if "rerun_count" not in st.session_state:
+    st.session_state.rerun_count = 0
+st.session_state.rerun_count += 1
+st.caption(f"🐞 Debug: script has rerun {st.session_state.rerun_count} time(s) this session.")
+
 
 st.header("Enter Your Measurements")
 
@@ -200,10 +210,10 @@ with st.form("measurement_form"):
         else:
 
             height = st.number_input(
-                "Height",
-                min_value=0.0,
-                value=170.0
-            )
+             "Height",
+              min_value=0.0,
+              value=0.0
+        )
 
     # ---------------- Weight ---------------- #
 
@@ -212,7 +222,7 @@ with st.form("measurement_form"):
         weight = st.number_input(
             "Weight",
             min_value=0.0,
-            value=70.0
+            value=0.0
         )
 
         weight_unit = st.selectbox(
@@ -389,12 +399,15 @@ if predict_button:
 
     # Make prediction
     prediction = model.predict(features)[0]
+    st.session_state.show_result = True
+    st.session_state.prediction = prediction
 
 
+# =====================================================
+# DISPLAY RESULT
+# =====================================================
 
-    # =====================================================
-    # DISPLAY RESULT
-    # =====================================================
+if st.session_state.show_result:
 
     st.divider()
 
@@ -408,7 +421,7 @@ if predict_button:
         "XXXL": "TRIPLE EXTRA LARGE (XXXL)"
     }
 
-    display_size = size_names.get(prediction, prediction)
+    display_size = size_names.get(st.session_state.prediction, st.session_state.prediction)
 
     st.markdown(
         "<h2 style='text-align:center;'>🎉 Your Perfect Fit</h2>",
