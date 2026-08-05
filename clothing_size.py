@@ -521,14 +521,16 @@ elif page == "💎 Upgrade":
         st.write("- A detailed downloadable Style Report with personalized styling tips")
         st.markdown("### KSh 100 / one-time unlock")
 
+        st.markdown("**Step 1: Pay**")
         st.link_button("💳 Pay via M-Pesa / Card (PayHero)", PAYMENT_LINK, use_container_width=True)
 
+        st.markdown("**Step 2: Confirm**")
         st.caption(
-            "Note: this demo doesn't verify payment automatically — that requires a PayHero webhook "
+            "This demo can't automatically detect your payment — that requires a PayHero webhook "
             "and a backend server, which is a stretch goal beyond this project's scope. "
-            "For demo purposes, you can simulate a successful payment below."
+            "Once you've paid, click below to unlock Pro."
         )
-        if st.button("✅ Simulate Successful Payment (Demo Only)", use_container_width=True):
+        if st.button("✅ I've Paid — Unlock Pro Now", use_container_width=True):
             st.session_state.is_pro = True
             st.rerun()
 
