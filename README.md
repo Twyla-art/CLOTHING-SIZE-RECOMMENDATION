@@ -1,7 +1,7 @@
 # CLOTHING-SIZE-RECOMMENDATION
 A machine learning-based clothing size recommendation system that predicts the appropriate clothing size using body measurements.
 
-
+--- 
 # SmartFit: Clothing Size Recommendation System
 
 ## Project Description
@@ -91,6 +91,7 @@ streamlit run clothing_size.py
 ## Exploratory Data Analysis(EDA)
 ![Gender distribution](![alt text](image.png))
 
+---
 ## Key Findings
 
 - Decision Tree Classifier achieved the highest prediction accuracy of 98.85%.
