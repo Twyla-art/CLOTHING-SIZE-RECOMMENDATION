@@ -1,13 +1,9 @@
-# CLOTHING-SIZE-RECOMMENDATION
-A machine learning-based clothing size recommendation system that predicts the appropriate clothing size using body measurements.
 
---- 
 # SmartFit: Clothing Size Recommendation System
 
 ## Project Description
 
 SmartFit is a machine learning-based clothing size recommendation system that predicts the most suitable clothing size using anthropometric body measurements. The system aims to improve clothing size selection for online shoppers by providing fast and accurate size recommendations, reducing incorrect purchases and product returns.
-
 
 ---
 
@@ -90,15 +86,14 @@ streamlit run clothing_size.py
 
 ## Exploratory Data Analysis(EDA)
 ### Gender distribution
-![Gender distribution](![alt text](image-1.png))
+[alt text](image-1.png)
 
 ### Height Distribution
 
-![Height distribution](![alt text](image-2.png))
-
+![alt text](image-2.png)
 ### Hip Breadth vs Gender
 
-![Hip Breadth vs Gender](![alt text](image-3.png))
+![alt text](image-3.png)
 ---
 ## Key Findings
 
