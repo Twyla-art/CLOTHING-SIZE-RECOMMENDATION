@@ -86,7 +86,7 @@ streamlit run clothing_size.py
 
 ## Exploratory Data Analysis(EDA)
 ### Gender distribution
-[alt text](image-1.png)
+![alt text](image-1.png)
 
 ### Height Distribution
 
