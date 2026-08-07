@@ -109,7 +109,8 @@ streamlit run clothing_size.py
 
 Tableau Public Dashboard
 
-(coming soon)
+https://public.tableau.com/app/profile/twyla.cherop/viz/SMARTFIT_17860998137010/CLOTHINGSIZERECOMMENDATION?publish=yes
+
 ---
 
 ## Live Application
