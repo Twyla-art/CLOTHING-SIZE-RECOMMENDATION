@@ -6,6 +6,9 @@ import streamlit as st
 import joblib
 import numpy as np
 import pandas as pd
+import requests
+import base64
+import time
 
 # -----------------------------------------------------
 # PAGE CONFIGURATION
@@ -18,14 +21,18 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------
-# CONFIG — swap this with your real PayHero Payment Link.
-# Sign up at https://app.payhero.co.ke (Kenyan gateway,
-# supports M-Pesa natively), create a Payment Link from your
-# dashboard (Payment Links / Hosted Payment Pages section),
-# and paste the URL below.
+# CONFIG — your real PayHero API credentials.
+# Found at app.payhero.co.ke:
+#   - API_USERNAME / API_PASSWORD -> "API Keys management"
+#   - CHANNEL_ID -> "Payment Channels" -> "My Payment Channels"
+# NEVER share these publicly (e.g. don't push a real filled-in
+# version of this file to a public GitHub repo).
 # -----------------------------------------------------
 
-PAYMENT_LINK = "https://short.payhero.co.ke/s/7X62bzW5MnGdPdsnqcgpzW"
+API_USERNAME = "SxoSIOnhTVIrm33EPfwY"
+API_PASSWORD = "IWWDLobMTX2iNPHdE8uVa51I6qZiWfhNc6roXyEP"
+CHANNEL_ID = 11066   # REPLACE with your real integer channel ID
+PRO_PRICE_KES = 100
 
 # -----------------------------------------------------
 # FASHION THEME (CSS)
@@ -155,6 +162,54 @@ def convert_weight(value, unit):
     return value
 
 # -----------------------------------------------------
+# PAYHERO PAYMENT FUNCTIONS
+# -----------------------------------------------------
+
+def payhero_auth_header():
+    credentials = f"{API_USERNAME}:{API_PASSWORD}"
+    encoded = base64.b64encode(credentials.encode()).decode()
+    return {"Authorization": f"Basic {encoded}", "Content-Type": "application/json"}
+
+
+def normalize_phone(phone):
+    """Convert 07XXXXXXXX or +254... into the 254XXXXXXXXX format PayHero expects."""
+    phone = phone.strip().replace(" ", "").replace("-", "")
+    if phone.startswith("+"):
+        phone = phone[1:]
+    if phone.startswith("0"):
+        phone = "254" + phone[1:]
+    return phone
+
+
+def initiate_stk_push(phone_number, external_reference):
+    payload = {
+        "amount": PRO_PRICE_KES,
+        "phone_number": normalize_phone(phone_number),
+        "channel_id": CHANNEL_ID,
+        "provider": "m-pesa",
+        "external_reference": external_reference,
+    }
+    response = requests.post(
+        "https://backend.payhero.co.ke/api/v2/payments",
+        json=payload,
+        headers=payhero_auth_header(),
+        timeout=15,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def check_transaction_status(reference):
+    response = requests.get(
+        "https://backend.payhero.co.ke/api/v2/transaction-status",
+        params={"reference": reference},
+        headers=payhero_auth_header(),
+        timeout=15,
+    )
+    response.raise_for_status()
+    return response.json()
+
+# -----------------------------------------------------
 # GARMENT TYPE -> REQUIRED MEASUREMENTS
 # -----------------------------------------------------
 
@@ -190,7 +245,6 @@ FIELD_LABELS = {
     "waist": "Waist", "hip": "Hip", "thigh": "Thigh", "calf": "Calf", "leg": "Leg Length",
 }
 
-# Garment types that don't require SmartFit Pro
 # Only these premium/formal garment types require SmartFit Pro — everything else is free
 PRO_ONLY_GARMENTS = [
     "Dress (Full-Length)", "Jumpsuit / Overall", "Jacket / Coat / Blazer",
@@ -506,7 +560,7 @@ elif page == "🔍 Size Guide":
     st.caption("General reference chart — your actual recommendation is personalized by the ML model on the Home page.")
 
 # =====================================================
-# UPGRADE / PAYMENT PAGE
+# UPGRADE / PAYMENT PAGE — real automatic M-Pesa STK Push
 # =====================================================
 
 elif page == "💎 Upgrade":
@@ -519,20 +573,67 @@ elif page == "💎 Upgrade":
         st.write("**Most garment types are always free** — Pro unlocks a few premium/formal styles:")
         st.write("- Sizing for: " + ", ".join(PRO_ONLY_GARMENTS))
         st.write("- A detailed downloadable Style Report with personalized styling tips")
-        st.markdown("### KSh 100 / one-time unlock")
+        st.markdown(f"### KSh {PRO_PRICE_KES} / one-time unlock")
 
-        st.markdown("**Step 1: Pay**")
-        st.link_button("💳 Pay via M-Pesa / Card (PayHero)", PAYMENT_LINK, use_container_width=True)
+        if CHANNEL_ID == 0 or "REPLACE_WITH" in API_USERNAME:
+            st.error("⚠️ Payment isn't configured yet — the API credentials at the top of this file need to be filled in.")
+        else:
+            phone = st.text_input("M-Pesa phone number", placeholder="07XXXXXXXX", key="pro_phone")
+            pay_clicked = st.button(
+                f"💳 Pay KSh {PRO_PRICE_KES} via M-Pesa",
+                use_container_width=True,
+                disabled=not phone
+            )
 
-        st.markdown("**Step 2: Confirm**")
-        st.caption(
-            "This demo can't automatically detect your payment — that requires a PayHero webhook "
-            "and a backend server, which is a stretch goal beyond this project's scope. "
-            "Once you've paid, click below to unlock Pro."
-        )
-        if st.button("✅ I've Paid — Unlock Pro Now", use_container_width=True):
-            st.session_state.is_pro = True
-            st.rerun()
+            if pay_clicked:
+                external_ref = f"SMARTFIT-{int(time.time())}"
+
+                with st.spinner("Sending M-Pesa prompt to your phone..."):
+                    try:
+                        init_result = initiate_stk_push(phone, external_ref)
+                    except Exception as e:
+                        st.error(f"Could not start payment: {e}")
+                        st.stop()
+
+                reference = init_result.get("reference")
+                if not reference:
+                    st.error("Something went wrong starting the payment. Please try again.")
+                    st.stop()
+
+                st.info("📱 Check your phone now and enter your M-Pesa PIN.")
+                status_placeholder = st.empty()
+                success = False
+
+                for attempt in range(20):  # ~60 seconds total
+                    status_placeholder.write(f"⏳ Waiting for you to complete payment on your phone... ({attempt + 1}/20)")
+                    time.sleep(3)
+
+                    try:
+                        status_result = check_transaction_status(reference)
+                    except Exception:
+                        continue  # transient network hiccup, just try again next loop
+
+                    status_value = str(status_result.get("status", "")).upper()
+                    if status_value in ("SUCCESS", "COMPLETED", "PAID"):
+                        success = True
+                        break
+                    elif status_value in ("FAILED", "CANCELLED", "CANCELED"):
+                        status_placeholder.empty()
+                        st.error(f"Payment {status_value.lower()}. Please try again.")
+                        st.stop()
+
+                status_placeholder.empty()
+
+                if success:
+                    st.session_state.is_pro = True
+                    st.balloons()
+                    st.success("✅ Payment confirmed — Pro unlocked!")
+                    st.rerun()
+                else:
+                    st.warning(
+                        "Didn't receive confirmation within 60 seconds. If you completed the payment, "
+                        "wait a moment and try again, or contact support."
+                    )
 
 # =====================================================
 # FOOTER
