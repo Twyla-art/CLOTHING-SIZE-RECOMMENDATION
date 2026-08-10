@@ -118,7 +118,6 @@ https://public.tableau.com/app/profile/twyla.cherop/viz/SMARTFIT_17860998137010/
 A Streamlit web application was developed to enable users to predict the most appropriate clothing size using the trained Decision Tree machine learning model.
 
 Live Application
-
 https://twyla-art-clothing-size-recommendation-clothing-size-wd7yu1.streamlit.app/
 
 
