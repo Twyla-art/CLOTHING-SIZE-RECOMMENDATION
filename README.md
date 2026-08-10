@@ -119,7 +119,7 @@ A Streamlit web application was developed to enable users to predict the most ap
 
 Live Application
 
-(coming soon)
+https://twyla-art-clothing-size-recommendation-clothing-size-wd7yu1.streamlit.app/
 
 ---
 
