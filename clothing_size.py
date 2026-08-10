@@ -29,9 +29,9 @@ st.set_page_config(
 # version of this file to a public GitHub repo).
 # -----------------------------------------------------
 
-API_USERNAME = "REPLACE_WITH_YOUR_API_USERNAME"
-API_PASSWORD = "REPLACE_WITH_YOUR_API_PASSWORD"
-CHANNEL_ID = 0  # REPLACE with your real integer channel ID
+API_USERNAME = "SxoSIOnhTVIrm33EPfwY"
+API_PASSWORD = "IWWDLobMTX2iNPHdE8uVa51I6qZiWfhNc6roXyEP"
+CHANNEL_ID = 11066  # REPLACE with your real integer channel ID
 PRO_PRICE_KES = 100
 
 # -----------------------------------------------------
@@ -541,13 +541,7 @@ Measure from your waist to your ankle.
 elif page == "🔍 Size Guide":
 
     st.title("🔍 Size Guide")
-    st.write(
-        "This chart shows the actual thresholds used to define each size category in the training data. "
-        "Chest, Waist, and Hip are shown because they're the only three measurements that directly define "
-        "the size labels (whichever lands in the largest bucket wins). The other measurements the model "
-        "uses — neck, shoulder, arm, thigh, calf, leg — help the model predict more precisely, but weren't "
-        "used to define the size categories themselves, so there's no equivalent official range for them."
-    )
+    st.write("This is the official size chart based on Chest, Waist, and Hip measurements.")
 
     guide_gender = st.radio("Gender", ["Male", "Female"], horizontal=True)
 
