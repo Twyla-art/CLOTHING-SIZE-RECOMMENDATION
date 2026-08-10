@@ -128,7 +128,7 @@ Live Application
 The complete project presentation is available on Canva.
 
 Canva Presentation
-(coming soon)
+https://www.canva.com/design/DAHQ2pNmKMY/xIXdUb3Bvl8F5Js0LTKU8A/edit
 
 
 ---

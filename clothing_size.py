@@ -29,9 +29,9 @@ st.set_page_config(
 # version of this file to a public GitHub repo).
 # -----------------------------------------------------
 
-API_USERNAME = "SxoSIOnhTVIrm33EPfwY"
-API_PASSWORD = "IWWDLobMTX2iNPHdE8uVa51I6qZiWfhNc6roXyEP"
-CHANNEL_ID = 11066   # REPLACE with your real integer channel ID
+API_USERNAME = "REPLACE_WITH_YOUR_API_USERNAME"
+API_PASSWORD = "REPLACE_WITH_YOUR_API_PASSWORD"
+CHANNEL_ID = 0  # REPLACE with your real integer channel ID
 PRO_PRICE_KES = 100
 
 # -----------------------------------------------------
@@ -541,13 +541,30 @@ Measure from your waist to your ankle.
 elif page == "🔍 Size Guide":
 
     st.title("🔍 Size Guide")
-    st.write("Search the general size chart below by keyword (e.g. a size or measurement name).")
+    st.write(
+        "This chart shows the actual thresholds used to define each size category in the training data. "
+        "Chest, Waist, and Hip are shown because they're the only three measurements that directly define "
+        "the size labels (whichever lands in the largest bucket wins). The other measurements the model "
+        "uses — neck, shoulder, arm, thigh, calf, leg — help the model predict more precisely, but weren't "
+        "used to define the size categories themselves, so there's no equivalent official range for them."
+    )
 
-    size_chart = pd.DataFrame({
-        "Size": ["XS", "S", "M", "L", "XL", "XXL", "XXXL"],
-        "Chest (cm)": ["<86", "86-94", "94-102", "102-110", "110-118", "118-126", "126+"],
-        "Waist (cm)": ["<70", "70-78", "78-86", "86-94", "94-102", "102-110", "110+"],
-    })
+    guide_gender = st.radio("Gender", ["Male", "Female"], horizontal=True)
+
+    if guide_gender == "Male":
+        size_chart = pd.DataFrame({
+            "Size": ["XS", "S", "M", "L", "XL", "XXL", "XXXL"],
+            "Chest (cm)": ["<86", "86-94", "94-102", "102-110", "110-118", "118-126", "126+"],
+            "Waist (cm)": ["<72", "72-80", "80-88", "88-96", "96-104", "104-112", "112+"],
+            "Hip (cm)": ["<31", "31-34", "34-37", "37-40", "40-43", "43-46", "46+"],
+        })
+    else:
+        size_chart = pd.DataFrame({
+            "Size": ["XS", "S", "M", "L", "XL", "XXL", "XXXL"],
+            "Chest (cm)": ["<80", "80-88", "88-96", "96-104", "104-112", "112-120", "120+"],
+            "Waist (cm)": ["<64", "64-72", "72-80", "80-88", "88-96", "96-104", "104+"],
+            "Hip (cm)": ["<30", "30-33", "33-36", "36-39", "39-42", "42-45", "45+"],
+        })
 
     query = st.text_input("Search size chart", placeholder="e.g. M, or 94")
 
