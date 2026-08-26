@@ -1,5 +1,8 @@
 streamlit
-scikit-learn
-numpy
 joblib
+numpy
 pandas
+scikit-learn
+requests
+mediapipe
+opencv-python-headless
