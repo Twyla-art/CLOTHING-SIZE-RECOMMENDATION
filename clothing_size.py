@@ -9,6 +9,7 @@ import pandas as pd
 import requests
 import base64
 import time
+import os
 
 # -----------------------------------------------------
 # PAGE CONFIGURATION
@@ -281,7 +282,7 @@ with st.sidebar:
 
     st.radio(
         "Navigate",
-        ["🏠 Home", "❓ Help", "🔍 Size Guide", "💎 Upgrade"],
+        ["🏠 Home", "📷 Photo Scan", "❓ Help", "🔍 Size Guide", "💎 Upgrade"],
         key="page",
         label_visibility="collapsed"
     )
@@ -467,6 +468,232 @@ if page == "🏠 Home":
             if st.button("💎 See Upgrade Options", key="upgrade_btn_style_report"):
                 st.session_state.nav_request = "💎 Upgrade"
                 st.rerun()
+
+# =====================================================
+# PHOTO SCAN PAGE — experimental, self-contained.
+# Imports and model loading only happen if this page is visited,
+# so a missing dependency or model file here can never break the
+# rest of the app (Home, Help, Size Guide, Upgrade).
+# =====================================================
+
+elif page == "📷 Photo Scan":
+
+    st.title("📷 Photo Scan ")
+    st.caption(
+        "Experimental: estimate your size from a photo instead of manual measurements. "
+        "Results are AI-estimated, not exact — manual entry on the Home page is more accurate."
+    )
+
+    st.markdown("### 📋 Before you upload a photo")
+    st.info("""
+**For an accurate result, your photo needs to show:**
+- ✅ Your ENTIRE body, head to feet, clearly visible in frame
+- ✅ Standing upright, facing the camera directly
+- ✅ Arms held slightly away from your sides (not pressed against your body)
+- ✅ Taken from about 2 metres / 6-8 feet back
+- ✅ Plain background and good lighting
+
+**Photos that won't work:** close-ups, selfies from above, partial body shots, or blurry/dark images — these will be automatically rejected.
+""")
+    st.divider()
+
+    try:
+        import cv2
+        import urllib.request
+        import mediapipe as mp
+        from mediapipe.tasks.python import BaseOptions
+        from mediapipe.tasks.python.vision import PoseLandmarker, PoseLandmarkerOptions, RunningMode
+    except ImportError as e:
+        st.error(
+            f"This feature needs extra libraries that aren't installed: {e}. "
+            "Run: pip install mediapipe opencv-python"
+        )
+        st.stop()
+
+    POSE_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
+    POSE_MODEL_PATH = "pose_landmarker_lite.task"
+
+    if not os.path.exists(POSE_MODEL_PATH):
+        with st.spinner("Downloading pose detection model (first run only, ~5MB)..."):
+            try:
+                urllib.request.urlretrieve(POSE_MODEL_URL, POSE_MODEL_PATH)
+            except Exception as e:
+                st.error(f"Could not download the pose detection model: {e}")
+                st.stop()
+
+    @st.cache_resource
+    def load_cv_models():
+        return {
+            "chest": joblib.load("chest_model.pkl"),
+            "waist": joblib.load("waist_model.pkl"),
+            "shoulder": joblib.load("shoulder_model.pkl"),
+            "neck": joblib.load("neck_model.pkl"),
+            "thigh": joblib.load("thigh_model.pkl"),
+            "calf": joblib.load("calf_model.pkl"),
+        }
+
+    try:
+        cv_models = load_cv_models()
+    except FileNotFoundError as e:
+        st.error(f"Missing model file for Photo Scan: {e}. This feature needs 6 extra .pkl files in the app folder.")
+        st.stop()
+
+    st.divider()
+    st.subheader("Your Info")
+    cv_col1, cv_col2, cv_col3 = st.columns(3)
+    with cv_col1:
+        cv_gender = st.selectbox("Gender", ["Male", "Female"], key="cv_gender")
+    with cv_col2:
+        st.write("Your actual height")
+        cv_feet = st.number_input("Feet", min_value=3, max_value=7, value=5, key="cv_feet")
+        cv_inches = st.number_input("Inches", min_value=0, max_value=11, value=7, key="cv_inches")
+        cv_height_cm = ((cv_feet * 12) + cv_inches) * 2.54
+    with cv_col3:
+        cv_weight_kg = st.number_input("Your weight (kg)", min_value=30.0, max_value=200.0, value=65.0, key="cv_weight")
+
+    cv_garment_type = st.selectbox(
+        "🎯 What are you sizing?",
+        list(GARMENT_REQUIREMENTS.keys()),
+        format_func=lambda g: g if (g in FREE_GARMENTS or st.session_state.is_pro) else f"🔒 {g} (Pro)",
+        key="cv_garment"
+    )
+    cv_required_fields = GARMENT_REQUIREMENTS[cv_garment_type]
+    cv_needs_lower = any(f in cv_required_fields for f in ["waist", "hip", "thigh", "calf", "leg"])
+    cv_is_locked = cv_garment_type not in FREE_GARMENTS and not st.session_state.is_pro
+
+    if cv_is_locked:
+        st.warning(f"🔒 **{cv_garment_type}** requires SmartFit Pro.")
+
+    st.caption(
+        "⚠️ Your height must be entered manually and accurately — a photo alone can't tell how tall "
+        "you are. It's what lets us convert pixel distances into real-world centimetres."
+    )
+
+    st.subheader("Photo")
+    if cv_needs_lower:
+        st.info(f"📏 **{cv_garment_type}** needs your full body measured — make sure your ENTIRE body, head to feet, is visible.")
+    else:
+        st.info(f"📏 **{cv_garment_type}** only needs your upper body — but please still include your full body so we can calibrate using your height.")
+
+    cv_photo = st.file_uploader("Upload a photo", type=["jpg", "jpeg", "png"], key="cv_photo", disabled=cv_is_locked)
+    cv_estimate_button = st.button(
+        "✨ Estimate My Size From Photo",
+        use_container_width=True,
+        disabled=(cv_photo is None) or cv_is_locked
+    )
+
+    if cv_is_locked:
+        st.caption(f"🔒 **{cv_garment_type}** requires SmartFit Pro.")
+        if st.button("💎 See Upgrade Options", key="upgrade_btn_photo_scan"):
+            st.session_state.nav_request = "💎 Upgrade"
+            st.rerun()
+
+    def cv_dist(a, b, w, h):
+        return np.sqrt(((a.x - b.x) * w) ** 2 + ((a.y - b.y) * h) ** 2)
+
+    if cv_estimate_button and cv_photo is not None:
+        with st.spinner("Analyzing photo..."):
+            file_bytes = np.frombuffer(cv_photo.getvalue(), np.uint8)
+            cv_image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+            cv_image_rgb = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv_image_rgb)
+            img_h, img_w = cv_image.shape[0], cv_image.shape[1]
+
+            options = PoseLandmarkerOptions(
+                base_options=BaseOptions(model_asset_path=POSE_MODEL_PATH),
+                running_mode=RunningMode.IMAGE,
+            )
+            with PoseLandmarker.create_from_options(options) as landmarker:
+                cv_result = landmarker.detect(mp_image)
+
+            if not cv_result.pose_landmarks:
+                st.error("No person detected in the photo. Please try again with better lighting and full body visible.")
+                st.stop()
+
+            lm = cv_result.pose_landmarks[0]
+            NOSE, L_SH, R_SH = lm[0], lm[11], lm[12]
+            L_HIP, R_HIP = lm[23], lm[24]
+            L_ELBOW, R_ELBOW = lm[13], lm[14]
+            L_WRIST, R_WRIST = lm[15], lm[16]
+            L_ANKLE, R_ANKLE = lm[27], lm[28]
+
+            cv_critical = {
+                "left shoulder": L_SH, "right shoulder": R_SH,
+                "left hip": L_HIP, "right hip": R_HIP,
+                "left ankle": L_ANKLE, "right ankle": R_ANKLE,
+                "left wrist": L_WRIST, "right wrist": R_WRIST,
+            }
+            cv_low_vis = [name for name, l in cv_critical.items() if l.visibility < 0.5]
+            if cv_low_vis:
+                st.error(
+                    f"These body parts weren't clearly visible: {', '.join(cv_low_vis)}. "
+                    "Please retake the photo standing further back so your ENTIRE body is in frame, with good lighting."
+                )
+                st.stop()
+
+            ankle_mid_y = (L_ANKLE.y + R_ANKLE.y) / 2
+            pixel_height = abs(NOSE.y - ankle_mid_y) * img_h
+            if pixel_height < 10:
+                st.error("Couldn't get a reliable full-body reading. Make sure your whole body is in frame.")
+                st.stop()
+
+            mm_per_pixel = (cv_height_cm * 10) / pixel_height
+
+            shoulder_breadth_mm = cv_dist(L_SH, R_SH, img_w, img_h) * mm_per_pixel
+            hip_breadth_mm = cv_dist(L_HIP, R_HIP, img_w, img_h) * mm_per_pixel
+            chest_breadth_mm = (shoulder_breadth_mm * 0.6 + hip_breadth_mm * 0.4)
+            waist_breadth_mm = (shoulder_breadth_mm * 0.4 + hip_breadth_mm * 0.6)
+
+            arm_length_mm = (
+                (cv_dist(L_SH, L_ELBOW, img_w, img_h) + cv_dist(L_ELBOW, L_WRIST, img_w, img_h)) +
+                (cv_dist(R_SH, R_ELBOW, img_w, img_h) + cv_dist(R_ELBOW, R_WRIST, img_w, img_h))
+            ) / 2 * mm_per_pixel
+
+            hip_mid_y_px = (L_HIP.y + R_HIP.y) / 2 * img_h
+            ankle_mid_y_px = ankle_mid_y * img_h
+            leg_length_mm = abs(hip_mid_y_px - ankle_mid_y_px) * mm_per_pixel
+
+            cv_gender_value = 1 if cv_gender == "Male" else 0
+            cv_height_mm = cv_height_cm * 10
+
+            chest_circumference_mm = cv_models["chest"].predict([[cv_gender_value, cv_height_mm, cv_weight_kg, chest_breadth_mm]])[0]
+            waist_circumference_mm = cv_models["waist"].predict([[cv_gender_value, cv_height_mm, cv_weight_kg, waist_breadth_mm]])[0]
+            shoulder_circumference_mm = cv_models["shoulder"].predict([[cv_gender_value, cv_height_mm, cv_weight_kg, shoulder_breadth_mm]])[0]
+
+            cv_secondary_input = [[cv_gender_value, cv_height_mm, cv_weight_kg, chest_circumference_mm, waist_circumference_mm, hip_breadth_mm]]
+            neck_circumference_mm = cv_models["neck"].predict(cv_secondary_input)[0]
+            thigh_circumference_mm = cv_models["thigh"].predict(cv_secondary_input)[0]
+            calf_circumference_mm = cv_models["calf"].predict(cv_secondary_input)[0]
+
+            cv_field_values = {
+                "chest": chest_circumference_mm, "waist": waist_circumference_mm, "hip": hip_breadth_mm,
+                "neck": neck_circumference_mm, "shoulder": shoulder_circumference_mm, "arm": arm_length_mm,
+                "thigh": thigh_circumference_mm, "calf": calf_circumference_mm, "leg": leg_length_mm,
+            }
+            for field in cv_field_values:
+                if field not in cv_required_fields:
+                    cv_field_values[field] = 0.0
+
+            cv_features = np.array([[
+                cv_gender_value, cv_height_mm, cv_weight_kg,
+                cv_field_values["chest"], cv_field_values["waist"], cv_field_values["hip"],
+                cv_field_values["neck"], cv_field_values["shoulder"], cv_field_values["arm"],
+                cv_field_values["thigh"], cv_field_values["calf"], cv_field_values["leg"]
+            ]])
+
+            cv_prediction = model.predict(cv_features)[0]
+
+        st.success(f"Estimated Size: **{cv_prediction}** (for {cv_garment_type})")
+
+        st.divider()
+        st.subheader("🔍 Estimated measurements")
+        st.caption("AI-estimated from your photo, not exact. Only measurements relevant to your garment type are shown.")
+
+        cv_est_data = {
+            "Measurement": [FIELD_LABELS[f] for f in cv_required_fields],
+            "Estimated (cm)": [round(cv_field_values[f] / 10, 1) for f in cv_required_fields],
+        }
+        st.dataframe(cv_est_data, use_container_width=True, hide_index=True)
 
 # =====================================================
 # HELP PAGE
