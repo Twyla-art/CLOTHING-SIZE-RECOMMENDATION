@@ -478,7 +478,7 @@ if page == "🏠 Home":
 
 elif page == "📷 Photo Scan":
 
-    st.title("📷 Photo Scan (Beta)")
+    st.title("📷 Photo Scan ")
     st.caption(
         "Experimental: estimate your size from a photo instead of manual measurements. "
         "Results are AI-estimated, not exact — manual entry on the Home page is more accurate."
