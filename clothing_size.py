@@ -478,7 +478,7 @@ if page == "🏠 Home":
 
 elif page == "📷 Photo Scan":
 
-    st.title("📷 Photo Scan ")
+    st.title("📷 Photo Scan (Beta)")
     st.caption(
         "Experimental: estimate your size from a photo instead of manual measurements. "
         "Results are AI-estimated, not exact — manual entry on the Home page is more accurate."
@@ -506,7 +506,7 @@ elif page == "📷 Photo Scan":
     except ImportError as e:
         st.error(
             f"This feature needs extra libraries that aren't installed: {e}. "
-            "Run: pip install mediapipe opencv-python"
+            "Run: pip install mediapipe opencv-python-headless"
         )
         st.stop()
 
